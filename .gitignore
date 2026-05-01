@@ -1,6 +1,7 @@
-# Ignore everything
-*
-
-# Except these files
-!.gitignore
-!README.md
+node_modules
+debug
+dist
+target
+.env
+.env.*
+license-gen

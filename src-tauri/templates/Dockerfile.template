@@ -1,0 +1,48 @@
+FROM n8nio/n8n:{{version}}
+
+USER root
+
+# Install apk-tools (Hardened Alpine doesn't include it)
+RUN busybox wget -O /tmp/apk-tools.apk \
+    https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/apk-tools-2.14.9-r3.apk && \
+    cd / && busybox tar xzf /tmp/apk-tools.apk && \
+    rm /tmp/apk-tools.apk
+
+# Replace with Tencent Cloud mirror
+RUN echo "https://mirrors.tencent.com/alpine/v3.22/main" > /etc/apk/repositories && \
+    echo "https://mirrors.tencent.com/alpine/v3.22/community" >> /etc/apk/repositories
+
+# Upgrade base libraries (fix version conflicts), then install new dependencies
+RUN apk update && apk upgrade --no-cache && apk add --no-cache \
+    ffmpeg \
+    curl \
+    python3 \
+    py3-pip \
+    yt-dlp \
+    chromium \
+    nss \
+    glib \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    udev \
+    ttf-liberation \
+    font-noto-emoji \
+    font-noto \
+    font-noto-cjk && \
+    rm -rf /var/cache/apk/*
+
+# Install yt-dlp (fallback to pip if apk version unavailable)
+RUN pip3 install --break-system-packages yt-dlp 2>/dev/null || true
+
+# Configure puppeteer and playwright to use system browser
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
+    PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Update font cache
+RUN fc-cache -f -v
+
+USER node
