@@ -2,7 +2,6 @@ use sha2::{Digest, Sha256};
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::aead::rand_core::RngCore;
-use hmac::Mac;
 use base64::Engine;
 
 pub const SECRET_KEY: &[u8; 32] = b"n8n-assistant-secret-2024-v1-k-1";
@@ -39,46 +38,35 @@ pub fn get_cpu_id() -> String {
 
 #[cfg(target_os = "macos")]
 pub fn get_cpu_id() -> String {
-    use core_foundation::base::TCFType;
-    use core_foundation::string::CFString;
-    use core_foundation::boolean::CFBoolean;
-    use core_foundation::dictionary::{CFDictionary, CFMutableDictionary};
-    use core_foundation::base::{kCFAllocatorDefault, ToVoid};
-
-    use IOKit_sys::*;
-
     unsafe {
-        let mut matching_dict: CFMutableDictionaryRef = std::ptr::null_mut();
-        IOServiceMatching(kIOPlatformExpertDeviceClass as *const i8, &mut matching_dict);
-
-        if matching_dict.is_null() {
-            return "UNKNOWN".to_string();
-        }
-
-        let service = IOServiceGetMatchingService(kIOMasterPortDefault, matching_dict);
-
-        if service == 0 {
-            return "UNKNOWN".to_string();
-        }
-
-        let io_platform_serial_number_key = CFString::from_static_string("IOPlatformSerialNumber");
-        let property = IORegistryEntryCreateCFProperty(
-            service,
-            io_platform_serial_number_key.as_concrete_TypeRef(),
-            kCFAllocatorDefault,
+        match libc::sysctlbyname(
+            b"machdep.cpu.brand_string\0".as_ptr() as *const i8,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null(),
             0,
-        );
-
-        IOObjectRelease(service);
-
-        if property.is_null() {
-            return "UNKNOWN".to_string();
+        ) {
+            0 => {
+                let mut len: usize = 0;
+                libc::sysctlbyname(
+                    b"machdep.cpu.brand_string\0".as_ptr() as *const i8,
+                    std::ptr::null_mut(),
+                    &mut len,
+                    std::ptr::null(),
+                    0,
+                );
+                let mut buf = vec![0u8; len];
+                libc::sysctlbyname(
+                    b"machdep.cpu.brand_string\0".as_ptr() as *const i8,
+                    buf.as_mut_ptr() as *mut libc::c_void,
+                    &mut len,
+                    std::ptr::null(),
+                    0,
+                );
+                String::from_utf8_lossy(&buf[..len.saturating_sub(1)]).to_string()
+            }
+            _ => "UNKNOWN".to_string(),
         }
-
-        let cf_string = CFString::wrap_under_get_rule(property);
-        let result = cf_string.to_string().unwrap_or_else(|_| "UNKNOWN".to_string());
-        CFRelease(property);
-        result
     }
 }
 
@@ -114,45 +102,27 @@ pub fn get_disk_serial() -> String {
 
 #[cfg(target_os = "macos")]
 pub fn get_disk_serial() -> String {
-    use core_foundation::base::TCFType;
-    use core_foundation::string::CFString;
-    use core_foundation::dictionary::{CFMutableDictionary};
-    use core_foundation::base::{kCFAllocatorDefault};
-
-    use IOKit_sys::*;
-
     unsafe {
-        let mut matching_dict: CFMutableDictionaryRef = std::ptr::null_mut();
-        IOServiceMatching(kIOPlatformExpertDeviceClass as *const i8, &mut matching_dict);
-
-        if matching_dict.is_null() {
-            return "UNKNOWN".to_string();
-        }
-
-        let service = IOServiceGetMatchingService(kIOMasterPortDefault, matching_dict);
-
-        if service == 0 {
-            return "UNKNOWN".to_string();
-        }
-
-        let io_platform_uuid_key = CFString::from_static_string("IOPlatformUUID");
-        let property = IORegistryEntryCreateCFProperty(
-            service,
-            io_platform_uuid_key.as_concrete_TypeRef(),
-            kCFAllocatorDefault,
+        let mut len: usize = 0;
+        libc::sysctlbyname(
+            b"kern.uuid\0".as_ptr() as *const i8,
+            std::ptr::null_mut(),
+            &mut len,
+            std::ptr::null(),
             0,
         );
-
-        IOObjectRelease(service);
-
-        if property.is_null() {
+        if len == 0 {
             return "UNKNOWN".to_string();
         }
-
-        let cf_string = CFString::wrap_under_get_rule(property);
-        let result = cf_string.to_string().unwrap_or_else(|_| "UNKNOWN".to_string());
-        CFRelease(property);
-        result
+        let mut buf = vec![0u8; len];
+        libc::sysctlbyname(
+            b"kern.uuid\0".as_ptr() as *const i8,
+            buf.as_mut_ptr() as *mut libc::c_void,
+            &mut len,
+            std::ptr::null(),
+            0,
+        );
+        String::from_utf8_lossy(&buf[..len.saturating_sub(1)]).to_string()
     }
 }
 
@@ -188,45 +158,27 @@ pub fn get_mb_uuid() -> String {
 
 #[cfg(target_os = "macos")]
 pub fn get_mb_uuid() -> String {
-    use core_foundation::base::TCFType;
-    use core_foundation::string::CFString;
-    use core_foundation::dictionary::{CFMutableDictionary};
-    use core_foundation::base::{kCFAllocatorDefault};
-
-    use IOKit_sys::*;
-
     unsafe {
-        let mut matching_dict: CFMutableDictionaryRef = std::ptr::null_mut();
-        IOServiceMatching(kIOPlatformExpertDeviceClass as *const i8, &mut matching_dict);
-
-        if matching_dict.is_null() {
-            return "UNKNOWN".to_string();
-        }
-
-        let service = IOServiceGetMatchingService(kIOMasterPortDefault, matching_dict);
-
-        if service == 0 {
-            return "UNKNOWN".to_string();
-        }
-
-        let io_platform_uuid_key = CFString::from_static_string("IOPlatformUUID");
-        let property = IORegistryEntryCreateCFProperty(
-            service,
-            io_platform_uuid_key.as_concrete_TypeRef(),
-            kCFAllocatorDefault,
+        let mut len: usize = 0;
+        libc::sysctlbyname(
+            b"hw.uuid\0".as_ptr() as *const i8,
+            std::ptr::null_mut(),
+            &mut len,
+            std::ptr::null(),
             0,
         );
-
-        IOObjectRelease(service);
-
-        if property.is_null() {
+        if len == 0 {
             return "UNKNOWN".to_string();
         }
-
-        let cf_string = CFString::wrap_under_get_rule(property);
-        let result = cf_string.to_string().unwrap_or_else(|_| "UNKNOWN".to_string());
-        CFRelease(property);
-        result
+        let mut buf = vec![0u8; len];
+        libc::sysctlbyname(
+            b"hw.uuid\0".as_ptr() as *const i8,
+            buf.as_mut_ptr() as *mut libc::c_void,
+            &mut len,
+            std::ptr::null(),
+            0,
+        );
+        String::from_utf8_lossy(&buf[..len.saturating_sub(1)]).to_string()
     }
 }
 
@@ -254,24 +206,6 @@ pub fn generate_machine_id() -> Result<String, String> {
     ).to_uppercase();
 
     Ok(formatted)
-}
-
-pub fn encrypt_data(data: &[u8]) -> Result<String, String> {
-    let cipher = Aes256Gcm::new_from_slice(SECRET_KEY)
-        .map_err(|e| format!("Failed to create cipher: {}", e))?;
-
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    let ciphertext = cipher
-        .encrypt(&nonce, data)
-        .map_err(|e| format!("Encryption failed: {}", e))?;
-
-    let mut result = nonce_bytes.to_vec();
-    result.extend_from_slice(&ciphertext);
-
-    Ok(base64::prelude::BASE64_STANDARD.encode(&result))
 }
 
 pub fn decrypt_data(encrypted: &str) -> Result<Vec<u8>, String> {
