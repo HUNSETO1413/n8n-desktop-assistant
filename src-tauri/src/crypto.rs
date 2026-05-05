@@ -66,7 +66,7 @@ pub fn get_cpu_id() -> String {
             b"machdep.cpu.brand_string\0".as_ptr() as *const i8,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
-            std::ptr::null(),
+            std::ptr::null_mut(),
             0,
         ) {
             0 => {
@@ -75,7 +75,7 @@ pub fn get_cpu_id() -> String {
                     b"machdep.cpu.brand_string\0".as_ptr() as *const i8,
                     std::ptr::null_mut(),
                     &mut len,
-                    std::ptr::null(),
+                    std::ptr::null_mut(),
                     0,
                 );
                 let mut buf = vec![0u8; len];
@@ -83,7 +83,7 @@ pub fn get_cpu_id() -> String {
                     b"machdep.cpu.brand_string\0".as_ptr() as *const i8,
                     buf.as_mut_ptr() as *mut libc::c_void,
                     &mut len,
-                    std::ptr::null(),
+                    std::ptr::null_mut(),
                     0,
                 );
                 String::from_utf8_lossy(&buf[..len.saturating_sub(1)]).to_string()
@@ -131,7 +131,7 @@ pub fn get_disk_serial() -> String {
             b"kern.uuid\0".as_ptr() as *const i8,
             std::ptr::null_mut(),
             &mut len,
-            std::ptr::null(),
+            std::ptr::null_mut(),
             0,
         );
         if len == 0 {
@@ -142,7 +142,7 @@ pub fn get_disk_serial() -> String {
             b"kern.uuid\0".as_ptr() as *const i8,
             buf.as_mut_ptr() as *mut libc::c_void,
             &mut len,
-            std::ptr::null(),
+            std::ptr::null_mut(),
             0,
         );
         String::from_utf8_lossy(&buf[..len.saturating_sub(1)]).to_string()
@@ -187,7 +187,7 @@ pub fn get_mb_uuid() -> String {
             b"hw.uuid\0".as_ptr() as *const i8,
             std::ptr::null_mut(),
             &mut len,
-            std::ptr::null(),
+            std::ptr::null_mut(),
             0,
         );
         if len == 0 {
@@ -198,7 +198,7 @@ pub fn get_mb_uuid() -> String {
             b"hw.uuid\0".as_ptr() as *const i8,
             buf.as_mut_ptr() as *mut libc::c_void,
             &mut len,
-            std::ptr::null(),
+            std::ptr::null_mut(),
             0,
         );
         String::from_utf8_lossy(&buf[..len.saturating_sub(1)]).to_string()
