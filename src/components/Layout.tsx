@@ -20,6 +20,7 @@ interface LayoutProps {
   showNotif: boolean;
   children: ReactNode;
   onDismissNotif: (id: string) => void;
+  onDismissAll: () => void;
   onToggleNotifPanel: () => void;
   onNavigate?: (page: PageType) => void;
 }
@@ -38,7 +39,7 @@ const navItems: { id: PageType; label: string; icon: typeof Monitor }[] = [
 
 const PAGE_SIZE = 5;
 
-export default function Layout({ page, licenseValid, licenseTier, serverOnline, licenseEnabled, notifications, showNotif, children, onDismissNotif, onToggleNotifPanel, onNavigate }: LayoutProps) {
+export default function Layout({ page, licenseValid, licenseTier, serverOnline, licenseEnabled, notifications, showNotif, children, onDismissNotif, onDismissAll, onToggleNotifPanel, onNavigate }: LayoutProps) {
   const [notifPage, setNotifPage] = useState(0);
   const tierLabel = licenseValid
     ? licenseTier === 'enterprise' ? '企业版' : '专业版'
@@ -58,6 +59,7 @@ export default function Layout({ page, licenseValid, licenseTier, serverOnline, 
 
   const handleClose = () => {
     setNotifPage(0);
+    onDismissAll();
     onToggleNotifPanel();
   };
 

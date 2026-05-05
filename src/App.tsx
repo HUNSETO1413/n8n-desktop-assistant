@@ -49,11 +49,35 @@ function App() {
   const [appUpdate, setAppUpdate] = useState<Awaited<ReturnType<typeof check>> | null>(null);
   const [updating, setUpdating] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
+  const dismissedNotifIds = useRef(new Set<string>());
 
   useEffect(() => { init(); }, []);
 
   const dismissNotification = useCallback((id: string) => {
+    dismissedNotifIds.current.add(id);
     setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const dismissAllNotifications = useCallback(() => {
+    setNotifications(prev => {
+      prev.forEach(n => dismissedNotifIds.current.add(n.id));
+      return [];
+    });
+  }, []);
+
+  const refreshLicense = useCallback(async () => {
+    try {
+      const machineId = await invoke('get_machine_id') as string;
+      const licenseResult: LicenseValidationResult = await invoke('validate_license', { machineId });
+      console.log('[License] validate result:', licenseResult);
+      setLicenseValid(licenseResult.valid);
+      setLicenseTier(licenseResult.valid ? parseTier(licenseResult.license_type) : null);
+      if (!licenseResult.valid && !loadingRef.current) { setPage('activation'); }
+    } catch (err) {
+      console.error('[License] validate error:', err);
+      setLicenseValid(false);
+      setLicenseTier(null);
+    }
   }, []);
 
   const sendHeartbeat = async (machineId: string) => {
@@ -72,13 +96,19 @@ function App() {
           setLicenseEnabled(true);
         }
         if (data.notifications && data.notifications.length > 0) {
-          setNotifications(prev => {
-            const existing = new Set(prev.map(n => n.id));
-            const fresh = data.notifications.filter((n: ServerNotification) => !existing.has(n.id));
-            return [...fresh, ...prev].slice(0, 50);
-          });
-          setShowNotif(true);
+          const fresh = (data.notifications as ServerNotification[]).filter(
+            (n) => !dismissedNotifIds.current.has(n.id)
+          );
+          if (fresh.length > 0) {
+            setNotifications(prev => {
+              const existing = new Set(prev.map(n => n.id));
+              const newOnes = fresh.filter((n) => !existing.has(n.id));
+              return [...newOnes, ...prev].slice(0, 50);
+            });
+            setShowNotif(true);
+          }
         }
+        refreshLicense();
       } else {
         setServerOnline(false);
       }
@@ -131,21 +161,6 @@ function App() {
     } catch { /* ignore in dev or without updater config */ }
   };
 
-  const refreshLicense = useCallback(async () => {
-    try {
-      const machineId = await invoke('get_machine_id') as string;
-      const licenseResult: LicenseValidationResult = await invoke('validate_license', { machineId });
-      console.log('[License] validate result:', licenseResult);
-      setLicenseValid(licenseResult.valid);
-      setLicenseTier(licenseResult.valid ? parseTier(licenseResult.license_type) : null);
-      if (!licenseResult.valid && !loadingRef.current) { setPage('activation'); }
-    } catch (err) {
-      console.error('[License] validate error:', err);
-      setLicenseValid(false);
-      setLicenseTier(null);
-    }
-  }, []);
-
   const installUpdate = async () => {
     if (!appUpdate || updating) return;
     setUpdating(true);
@@ -188,7 +203,7 @@ function App() {
 
   return (
     <LicenseContext.Provider value={{ licenseValid, licenseTier, refreshLicense }}>
-      <Layout page={page} licenseValid={licenseValid} licenseTier={licenseTier} serverOnline={serverOnline} licenseEnabled={licenseEnabled} notifications={notifications} showNotif={showNotif} onDismissNotif={dismissNotification} onToggleNotifPanel={() => setShowNotif(prev => !prev)} onNavigate={setPage}>
+      <Layout page={page} licenseValid={licenseValid} licenseTier={licenseTier} serverOnline={serverOnline} licenseEnabled={licenseEnabled} notifications={notifications} showNotif={showNotif} onDismissNotif={dismissNotification} onDismissAll={dismissAllNotifications} onToggleNotifPanel={() => setShowNotif(prev => !prev)} onNavigate={setPage}>
         {page === 'env-check' && <EnvironmentCheck onComplete={async () => {
         await refreshLicense();
         // refreshLicense will set licenseValid, but state won't be available immediately
