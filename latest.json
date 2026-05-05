@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "notes": "n8n Desktop Assistant 初始版本",
+  "pub_date": "2026-05-01T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSc2RwYktWaU1ISVRLNDBaWUJ1QWJydmdMMnE4YXlSZW9PL0xWbHp4ODgvVjhLdlhzU3htRTZJN2h3NG5XNHhYd3VCZWIrY3dPMldISjlIOTdpZE1nTHJyRUVLTm9weXdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3NjM5ODgwCWZpbGU6bjhuIERlc2t0b3AgQXNzaXN0YW50XzEuMC4wX3g2NC1zZXR1cC5leGUKY01iSFB3eFBuZHE2SXNqTWFSenFRSmluOE1XUHliMlJtZUJ1WE5FdHd3NEMzc3RobFJESWdmamxiWFUwS0NVL3ZnaE1kaVJWV0cxZ2NDWHVRT3JGRFE9PQo=",
+      "url": "https://github.com/HUNSETO1413/n8n-desktop-assistant/releases/download/v1.0.0/n8n.Desktop.Assistant_1.0.0_x64-setup.exe"
+    }
+  }
+}
