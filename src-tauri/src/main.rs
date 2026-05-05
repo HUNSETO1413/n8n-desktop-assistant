@@ -16,7 +16,7 @@ mod files;
 
 use crypto::generate_machine_id;
 use tauri::{
-    menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
+    menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
     tray::TrayIconBuilder,
     Emitter, Manager, WindowEvent,
 };
@@ -95,6 +95,8 @@ fn main() {
                 .build()?;
 
             let _tray = TrayIconBuilder::with_id("main-tray")
+                .icon(app.default_window_icon().cloned().unwrap())
+                .tooltip("n8n Desktop Assistant")
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     match event.id.as_ref() {
