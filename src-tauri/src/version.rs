@@ -17,12 +17,17 @@ pub struct UpdateStep {
     pub progress: u32,
 }
 
+const DOCKERHUB_REPO: &str = "hunseto001/n8n-jianying";
+
 #[tauri::command]
 pub async fn check_updates(
     app: AppHandle,
     current_version: String,
 ) -> Result<VersionCheckResult, String> {
-    let url = "https://hub.docker.com/v2/repositories/n8nio/n8n/tags/?page_size=20&ordering=last_updated";
+    let url = format!(
+        "https://hub.docker.com/v2/repositories/{}/tags/?page_size=20&ordering=last_updated",
+        DOCKERHUB_REPO
+    );
 
     let output = app.shell().command("curl")
         .args(["-s", &url])
@@ -45,7 +50,7 @@ pub async fn check_updates(
     let mut versions = Vec::new();
     for tag in results {
         if let Some(name) = tag.get("name").and_then(|v| v.as_str()) {
-            if !name.starts_with("rc-") && !name.contains("edge") {
+            if name != "latest" && !name.starts_with("sha-") {
                 versions.push(name.to_string());
             }
         }

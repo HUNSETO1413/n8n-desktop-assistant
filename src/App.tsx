@@ -13,6 +13,8 @@ import VersionManager from './pages/VersionManager';
 import Logs from './pages/Logs';
 import LicensePage from './pages/LicensePage';
 import About from './pages/About';
+import Marketplace from './pages/Marketplace';
+import BeautifyPage from './pages/BeautifyPage';
 import { LicenseContext } from './contexts/LicenseContext';
 import type { LicenseValidationResult, EnvCheckResult, PageType, LicenseTier } from './types';
 
@@ -114,6 +116,12 @@ function App() {
       setLoading(false);
     }
 
+    // Retry license validation after startup to handle WMI/Tauri init timing
+    const retryDelays = [1000, 2000, 3000, 5000];
+    retryDelays.forEach(delay => {
+      setTimeout(() => { refreshLicense(); }, delay);
+    });
+
     // Check for app self-update after init
     try {
       const update = await check();
@@ -202,6 +210,8 @@ function App() {
         {page === 'logs' && <Logs licenseValid={licenseValid} licenseTier={licenseTier} onNavigate={setPage} />}
         {page === 'license' && <LicensePage />}
         {page === 'about' && <About />}
+        {page === 'marketplace' && <Marketplace />}
+        {page === 'beautify' && <BeautifyPage />}
       </Layout>
 
       {/* App self-update modal */}

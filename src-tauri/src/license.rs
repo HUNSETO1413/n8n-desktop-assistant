@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::AppHandle;
-use crate::crypto::{decrypt_data, encrypt_data, generate_signature};
+use crate::crypto::{decrypt_data, generate_signature};
 use crate::config::get_config_dir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 import type { PageType, LicenseTier } from '../types';
 import { ReactNode, useState } from 'react';
-import { Monitor, Settings, RefreshCw, FolderOpen, FileText, ShieldCheck, KeyRound, Info, Wifi, WifiOff, Bell, X, Ban, ChevronLeft, ChevronRight, AlertCircle, AlertTriangle, InfoIcon } from 'lucide-react';
+import { Monitor, Settings, RefreshCw, FolderOpen, FileText, ShieldCheck, KeyRound, Info, Wifi, WifiOff, Bell, X, Ban, ChevronLeft, ChevronRight, AlertCircle, AlertTriangle, InfoIcon, Store, Palette } from 'lucide-react';
 
 interface ServerNotification {
   id: string;
@@ -28,6 +28,8 @@ const navItems: { id: PageType; label: string; icon: typeof Monitor }[] = [
   { id: 'dashboard', label: '仪表盘', icon: Monitor },
   { id: 'services', label: '服务管理', icon: RefreshCw },
   { id: 'version', label: '版本管理', icon: FolderOpen },
+  { id: 'marketplace', label: '应用市场', icon: Store },
+  { id: 'beautify', label: '界面美化', icon: Palette },
   { id: 'settings', label: '设置', icon: Settings },
   { id: 'logs', label: '日志', icon: FileText },
   { id: 'license', label: '授权管理', icon: KeyRound },
@@ -132,7 +134,7 @@ export default function Layout({ page, licenseValid, licenseTier, serverOnline, 
               ) : !licenseEnabled ? (
                 <span className="sidebar-license-invalid">已被禁用</span>
               ) : (
-                <span className="sidebar-license-valid">已授权 · {tierLabel}</span>
+                <span className="sidebar-license-valid">{tierLabel}</span>
               )}
             </div>
           </button>

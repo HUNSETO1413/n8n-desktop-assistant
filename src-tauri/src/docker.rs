@@ -45,6 +45,22 @@ pub struct DockerLogsResult {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalImage {
+    pub repository: String,
+    pub tag: String,
+    pub id: String,
+    pub created: String,
+    pub size: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListImagesResult {
+    pub images: Vec<LocalImage>,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
 pub fn get_docker_compose_dir(install_path: &str) -> PathBuf {
     #[cfg(windows)]
     {
@@ -239,6 +255,25 @@ pub async fn docker_pull(
 }
 
 #[tauri::command]
+pub async fn docker_restart(
+    app: AppHandle,
+    container_name: String,
+) -> Result<bool, String> {
+    let output = app.shell().command("docker")
+        .args(["restart", &container_name])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run docker restart: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!("docker restart failed: {}",
+            String::from_utf8_lossy(&output.stderr)));
+    }
+
+    Ok(true)
+}
+
+#[tauri::command]
 pub async fn compose_logs(
     app: AppHandle,
     install_path: String,
@@ -263,4 +298,99 @@ pub async fn compose_logs(
         success: true,
         error: None,
     })
+}
+
+#[tauri::command]
+pub async fn list_local_images(app: AppHandle) -> Result<ListImagesResult, String> {
+    let output = app.shell().command("docker")
+        .args(["images", "--format", "{{json .}}", "--filter", "reference=*n8n*"])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to list images: {}", e))?;
+
+    if !output.status.success() {
+        return Ok(ListImagesResult {
+            images: vec![],
+            success: false,
+            error: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+        });
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut images = Vec::new();
+
+    for line in stdout.lines() {
+        if line.trim().is_empty() { continue; }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+            images.push(LocalImage {
+                repository: v.get("Repository").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                tag: v.get("Tag").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                id: v.get("ID").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                created: v.get("CreatedSince").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                size: v.get("Size").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            });
+        }
+    }
+
+    Ok(ListImagesResult { images, success: true, error: None })
+}
+
+#[tauri::command]
+pub async fn tag_image(
+    app: AppHandle,
+    source: String,
+    target: String,
+) -> Result<bool, String> {
+    let output = app.shell().command("docker")
+        .args(["tag", &source, &target])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to tag image: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!("docker tag failed: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn push_image(
+    app: AppHandle,
+    image: String,
+) -> Result<bool, String> {
+    let output = app.shell().command("docker")
+        .args(["push", &image])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to push image: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!("docker push failed: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn docker_login(
+    app: AppHandle,
+    registry: String,
+    username: String,
+    password: String,
+) -> Result<bool, String> {
+    let mut args = vec!["login".to_string()];
+    if !registry.is_empty() {
+        args.push(registry);
+    }
+    args.extend(["-u".to_string(), username, "-p".to_string(), password]);
+
+    let output = app.shell().command("docker")
+        .args(&args)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to login: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!("docker login failed: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    Ok(true)
 }

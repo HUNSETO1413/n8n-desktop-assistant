@@ -4,6 +4,15 @@ import { Play, Square, ExternalLink, RefreshCw, RotateCw, FileText, PowerOff, Sh
 import { useLicenseGuard } from '../components/LicenseGuard';
 import type { ContainerStatus, DockerPsResult, PageType, LicenseTier } from '../types';
 
+interface AppConfig {
+  install_path: string;
+  port: number;
+  n8n_version: string;
+  enterprise_enabled: boolean;
+  chinese_ui_enabled: boolean;
+  workers: number;
+}
+
 interface DashboardProps {
   licenseValid: boolean;
   licenseTier: LicenseTier | null;
@@ -12,18 +21,23 @@ interface DashboardProps {
 
 export default function Dashboard({ licenseValid, licenseTier, onNavigate }: DashboardProps) {
   const [containers, setContainers] = useState<ContainerStatus[]>([]);
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [n8nVersion] = useState('2.18.5');
-  const [enterpriseEnabled] = useState(true);
-  const [chineseUIEnabled] = useState(true);
-  const [workersCount] = useState(3);
   const { guard, GuardModal } = useLicenseGuard(licenseValid, licenseTier, onNavigate);
 
   useEffect(() => {
+    loadConfig();
     loadContainerStatus();
     const interval = setInterval(loadContainerStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadConfig = async () => {
+    try {
+      const cfg = await invoke<AppConfig>('load_config');
+      setConfig(cfg);
+    } catch { /* ignore */ }
+  };
 
   const loadContainerStatus = async () => {
     try {
@@ -33,33 +47,41 @@ export default function Dashboard({ licenseValid, licenseTier, onNavigate }: Das
     setLoading(false);
   };
 
+  const installPath = config?.install_path || 'D:\\n8n-compose';
+  const n8nUrl = `http://localhost:${config?.port || 5678}`;
+
   const handleStartAll = () => guard(async () => {
-    try { await invoke('compose_up', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadContainerStatus(), 2000); }
+    try { await invoke('compose_up', { installPath }); setTimeout(() => loadContainerStatus(), 2000); }
     catch (err) { alert('启动失败: ' + (err as string)); }
   });
   const handleStopAll = () => guard(async () => {
-    try { await invoke('compose_down', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadContainerStatus(), 2000); }
+    try { await invoke('compose_down', { installPath }); setTimeout(() => loadContainerStatus(), 2000); }
     catch (err) { alert('停止失败: ' + (err as string)); }
   });
-  const handleOpenN8n = () => guard(() => window.open('http://localhost:5678', '_blank'));
-  const handleRestart = (_name: string) => guard(async () => {
-    try { await invoke('compose_down', { installPath: 'D:\\n8n-compose' }); await invoke('compose_up', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadContainerStatus(), 2000); }
-    catch (err) { console.error(err); }
+  const handleOpenN8n = () => guard(() => window.open(n8nUrl, '_blank'));
+  const handleRestart = (name: string) => guard(async () => {
+    try { await invoke('docker_restart', { containerName: name }); setTimeout(() => loadContainerStatus(), 2000); }
+    catch (err) { alert('重启失败: ' + (err as string)); }
+  });
+  const handleViewLogs = () => guard(() => {
+    onNavigate?.('logs');
   });
 
   const runningCount = containers.filter(c => c.status.toLowerCase().includes('up') || c.status.toLowerCase().includes('running')).length;
+
+  const stats = [
+    { icon: Cpu, label: '版本', value: config?.n8n_version ? `v${config.n8n_version}` : '--', color: 'blue' as const },
+    { icon: ShieldCheck, label: '企业版', value: config?.enterprise_enabled ? '已启用' : '未启用', color: 'green' as const },
+    { icon: Globe, label: '中文界面', value: config?.chinese_ui_enabled ? '已启用' : '未启用', color: 'violet' as const },
+    { icon: RefreshCw, label: 'Workers', value: config ? `${config.workers} 个` : '--', color: 'amber' as const },
+  ];
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: '1200px', margin: '0 auto' }}>
       {GuardModal}
       {/* Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        {[
-          { icon: Cpu, label: '版本', value: `v${n8nVersion}`, color: 'blue' },
-          { icon: ShieldCheck, label: '企业版', value: enterpriseEnabled ? '已启用' : '未启用', color: 'green' },
-          { icon: Globe, label: '中文界面', value: chineseUIEnabled ? '已启用' : '未启用', color: 'violet' },
-          { icon: RefreshCw, label: 'Workers', value: `${workersCount} 个`, color: 'amber' },
-        ].map(({ icon: Icon, label, value, color }) => (
+        {stats.map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="glass-card" style={{ padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
@@ -127,7 +149,7 @@ export default function Dashboard({ licenseValid, licenseTier, onNavigate }: Das
                       <button onClick={() => handleRestart(c.name)} className="btn btn-ghost" style={{ flex: 1, fontSize: 12, padding: '6px 8px' }}>
                         <RotateCw style={{ width: 12, height: 12 }} /> 重启
                       </button>
-                      <button className="btn btn-ghost" style={{ flex: 1, fontSize: 12, padding: '6px 8px' }}>
+                      <button onClick={() => handleViewLogs()} className="btn btn-ghost" style={{ flex: 1, fontSize: 12, padding: '6px 8px' }}>
                         <FileText style={{ width: 12, height: 12 }} /> 日志
                       </button>
                     </div>

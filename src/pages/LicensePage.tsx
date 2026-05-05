@@ -22,6 +22,9 @@ export default function LicensePage() {
       setMachineId(id);
       const result = await invoke('validate_license', { machineId: id }) as LicenseValidationResult;
       setLicense(result);
+      if (result.valid) {
+        await refreshLicense();
+      }
     } catch {
       // ignore
     } finally {
@@ -100,7 +103,7 @@ export default function LicensePage() {
               {license.license_type && (
                 <div style={{ padding: '16px 20px', borderRadius: 12, background: '#f8fafc' }}>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>授权类型</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{license.license_type}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{license.license_type.toLowerCase().includes("enterprise") ? "企业版" : "专业版"}</div>
                 </div>
               )}
               {license.expire_time && (

@@ -22,7 +22,7 @@ export interface DataPaths {
   mcp: string;
 }
 
-export type PageType = 'env-check' | 'activation' | 'wizard' | 'dashboard' | 'settings' | 'services' | 'version' | 'logs' | 'license' | 'about';
+export type PageType = 'env-check' | 'activation' | 'wizard' | 'dashboard' | 'settings' | 'services' | 'version' | 'logs' | 'license' | 'about' | 'marketplace' | 'beautify';
 
 export type LicenseTier = 'professional' | 'enterprise';
 

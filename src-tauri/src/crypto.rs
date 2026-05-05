@@ -1,10 +1,33 @@
 use sha2::{Digest, Sha256};
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use aes_gcm::aead::{Aead, OsRng};
-use aes_gcm::aead::rand_core::RngCore;
+use aes_gcm::aead::Aead;
 use base64::Engine;
+use std::sync::OnceLock;
 
 pub const SECRET_KEY: &[u8; 32] = b"n8n-assistant-secret-2024-v1-k-1";
+
+static MACHINE_ID_CACHE: OnceLock<String> = OnceLock::new();
+
+#[cfg(windows)]
+fn machine_id_cache_path() -> Option<std::path::PathBuf> {
+    std::env::var("LOCALAPPDATA").ok().map(|base| {
+        let mut p = std::path::PathBuf::from(base);
+        p.push("n8n-desktop-assistant");
+        p.push("machine_id.cache");
+        p
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn machine_id_cache_path() -> Option<std::path::PathBuf> {
+    std::env::var("HOME").ok().map(|base| {
+        let mut p = std::path::PathBuf::from(base);
+        p.push(".cache");
+        p.push("n8n-desktop-assistant");
+        p.push("machine_id.cache");
+        p
+    })
+}
 
 #[cfg(windows)]
 pub fn get_cpu_id() -> String {
@@ -183,6 +206,21 @@ pub fn get_mb_uuid() -> String {
 }
 
 pub fn generate_machine_id() -> Result<String, String> {
+    if let Some(cached) = MACHINE_ID_CACHE.get() {
+        return Ok(cached.clone());
+    }
+
+    // Try file cache first (survives restarts, avoids WMI timing issues)
+    if let Some(path) = machine_id_cache_path() {
+        if let Ok(cached) = std::fs::read_to_string(&path) {
+            let trimmed = cached.trim().to_string();
+            if !trimmed.is_empty() {
+                let _ = MACHINE_ID_CACHE.set(trimmed.clone());
+                return Ok(trimmed);
+            }
+        }
+    }
+
     let cpu_id = get_cpu_id();
     let disk_serial = get_disk_serial();
     let mb_uuid = get_mb_uuid();
@@ -204,6 +242,18 @@ pub fn generate_machine_id() -> Result<String, String> {
         String::from_utf8_lossy(&hash_bytes[8..12]),
         String::from_utf8_lossy(&hash_bytes[12..16])
     ).to_uppercase();
+
+    // Only cache when all hardware components are valid
+    let all_valid = cpu_id != "UNKNOWN" && disk_serial != "UNKNOWN" && mb_uuid != "UNKNOWN";
+    if all_valid {
+        let _ = MACHINE_ID_CACHE.set(formatted.clone());
+        if let Some(path) = machine_id_cache_path() {
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(&path, &formatted);
+        }
+    }
 
     Ok(formatted)
 }
