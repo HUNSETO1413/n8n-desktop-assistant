@@ -179,32 +179,38 @@ export default function Settings() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {([
-                  { key: 'enterprise_enabled' as const, label: '企业版功能', desc: '自动注入企业版授权', icon: Shield },
-                  { key: 'chinese_ui_enabled' as const, label: '中文界面', desc: '自动下载汉化包', icon: Globe },
-                ]).map(({ key, label, desc, icon: Icon }) => (
+                  { key: 'enterprise_enabled' as const, label: '企业版功能', desc: licenseValid && licenseTier === 'enterprise' ? '自动注入企业版授权' : '需要企业版授权才能启用', icon: Shield, locked: !licenseValid || licenseTier !== 'enterprise' },
+                  { key: 'chinese_ui_enabled' as const, label: '中文界面', desc: '自动下载汉化包', icon: Globe, locked: false },
+                ]).map(({ key, label, desc, icon: Icon, locked }) => (
                   <div key={key} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '16px 20px', borderRadius: 14, background: '#f8fafc',
+                    opacity: locked ? 0.5 : 1,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: 10,
-                        background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: locked ? '#fef2f2' : '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                       }}>
-                        <Icon style={{ width: 16, height: 16, color: '#6b7280' }} />
+                        <Icon style={{ width: 16, height: 16, color: locked ? '#dc2626' : '#6b7280' }} />
                       </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {label}
+                          {locked && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#fef2f2', color: '#dc2626', fontWeight: 600 }}>需要企业版</span>}
+                        </div>
                         <div style={{ fontSize: 12, color: '#9ca3af' }}>{desc}</div>
                       </div>
                     </div>
-                    <label className="toggle">
-                      <input type="checkbox" checked={config[key] as boolean}
+                    <label className="toggle" style={locked ? { pointerEvents: 'none' } : {}}>
+                      <input type="checkbox" checked={locked ? false : (config[key] as boolean)}
                         onChange={(e) => {
                           if (key === 'enterprise_enabled') { guardEnterprise(() => setConfig({ ...config, [key]: e.target.checked })); return; }
                           setConfig({ ...config, [key]: e.target.checked });
-                        }} />
+                        }}
+                        disabled={locked} />
                       <span className="toggle-slider" />
                     </label>
                   </div>

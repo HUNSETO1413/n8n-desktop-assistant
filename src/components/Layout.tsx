@@ -1,6 +1,7 @@
 import type { PageType, LicenseTier } from '../types';
 import { ReactNode, useState } from 'react';
 import { Monitor, Settings, RefreshCw, FolderOpen, FileText, ShieldCheck, KeyRound, Info, Wifi, WifiOff, Bell, X, Ban, ChevronLeft, ChevronRight, AlertCircle, AlertTriangle, InfoIcon, Store, Palette } from 'lucide-react';
+import TitleBar from './TitleBar';
 
 interface ServerNotification {
   id: string;
@@ -82,8 +83,10 @@ export default function Layout({ page, licenseValid, licenseTier, serverOnline, 
   };
 
   return (
-    <div className="flex h-screen">
-      <div className="sidebar">
+    <div className="flex flex-col h-screen">
+      <TitleBar />
+      <div className="flex flex-1 min-h-0">
+        <div className="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-icon">
             <img src="/icon.png" alt="n8n" style={{ width: 20, height: 20, borderRadius: 4 }} />
@@ -311,6 +314,7 @@ export default function Layout({ page, licenseValid, licenseTier, serverOnline, 
         )}
 
         {children}
+      </div>
       </div>
     </div>
   );

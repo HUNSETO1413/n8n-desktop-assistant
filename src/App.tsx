@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { listen } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/plugin-shell';
 import Layout from './components/Layout';
 import EnvironmentCheck from './pages/EnvironmentCheck';
 import Activation from './pages/Activation';
@@ -52,6 +54,24 @@ function App() {
   const dismissedNotifIds = useRef(new Set<string>());
 
   useEffect(() => { init(); }, []);
+
+  useEffect(() => {
+    const unlisten = listen<string>('tray://navigate', (event) => {
+      const target = event.payload;
+      if (target === 'open_n8n') {
+        (async () => {
+          try {
+            const cfg = await invoke('load_config') as Record<string, unknown>;
+            const port = cfg.n8n_port || 5678;
+            await open(`http://localhost:${port}`);
+          } catch { /* ignore */ }
+        })();
+      } else if (target === 'settings' || target === 'beautify') {
+        setPage(target as PageType);
+      }
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
 
   const dismissNotification = useCallback((id: string) => {
     dismissedNotifIds.current.add(id);
