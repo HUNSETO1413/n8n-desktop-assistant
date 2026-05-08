@@ -12,6 +12,9 @@ on:
         required: true
         default: '2.19.4'
 
+permissions:
+  packages: write
+
 env:
   DOCKERHUB_IMAGE: hunseto001/n8n-jianying
   GHCR_IMAGE: ghcr.io/hunseto1413/n8n-jianying
