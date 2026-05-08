@@ -1,27 +1,21 @@
 ARG N8N_VERSION=latest
-FROM n8nio/n8n:${N8N_VERSION}
+FROM n8nio/n8n:${N8N_VERSION}-debian
 
 USER root
 
-# Tencent Cloud mirror (auto-detect Alpine version)
-RUN ALPINE_VER=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2 | cut -d'.' -f1,2) && \
-    echo "https://mirrors.tencent.com/alpine/v${ALPINE_VER}/main" > /etc/apk/repositories && \
-    echo "https://mirrors.tencent.com/alpine/v${ALPINE_VER}/community" >> /etc/apk/repositories
-
-# Install system packages
-RUN apk update && apk upgrade --no-cache && apk add --no-cache \
-    ffmpeg curl python3 py3-pip yt-dlp \
-    chromium nss glib freetype harfbuzz \
-    ca-certificates ttf-freefont udev \
-    ttf-liberation font-noto-emoji font-noto font-noto-cjk && \
-    rm -rf /var/cache/apk/*
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    ffmpeg curl python3 python3-pip \
+    chromium libnss3 libglib2.0-0 libfreetype6 libharfbuzz0b \
+    ca-certificates fonts-freefont-ttf udev \
+    fonts-liberation fonts-noto-color-emoji fonts-noto fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --break-system-packages yt-dlp 2>/dev/null || true
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
-    PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium
 
 RUN fc-cache -f -v
 
