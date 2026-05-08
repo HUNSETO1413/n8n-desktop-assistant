@@ -36,6 +36,7 @@ export default function VersionManager({ licenseValid, licenseTier, onNavigate }
     steps: [
       { description: '拉取镜像', status: 'pending' },
       { description: '标记本地镜像', status: 'pending' },
+      { description: '准备配置文件', status: 'pending' },
       { description: '停止服务', status: 'pending' },
       { description: '启动新服务', status: 'pending' },
     ],
@@ -94,12 +95,19 @@ export default function VersionManager({ licenseValid, licenseTier, onNavigate }
       setStep(1, 'success');
 
       setStep(2, 'running');
-      await invoke('compose_down', { installPath });
+      const extractResult = await invoke('extract_base_command', { n8nVersion: version, installPath }) as { content: string };
+      if (licenseTier === 'enterprise') {
+        await invoke('inject_enterprise', { installPath, content: extractResult.content });
+      }
       setStep(2, 'success');
 
       setStep(3, 'running');
-      await invoke('compose_up', { installPath });
+      await invoke('compose_down', { installPath });
       setStep(3, 'success');
+
+      setStep(4, 'running');
+      await invoke('compose_up', { installPath });
+      setStep(4, 'success');
 
       setCurrentVersion(version);
       setTimeout(() => { setUpdating(false); }, 800);

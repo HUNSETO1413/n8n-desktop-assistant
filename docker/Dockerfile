@@ -41,9 +41,4 @@ RUN mkdir -p /tmp/i18n && \
     cp -rf dist/* /usr/local/lib/node_modules/n8n/node_modules/n8n-editor-ui/dist/ && \
     rm -rf /tmp/i18n
 
-# ── Enterprise mock injection ──
-COPY enterprise-mock.js /tmp/enterprise-mock.js
-RUN node /tmp/enterprise-mock.js /usr/local/lib/node_modules/n8n/dist/commands/base-command.js && \
-    rm /tmp/enterprise-mock.js
-
 USER node

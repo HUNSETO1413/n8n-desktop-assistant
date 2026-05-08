@@ -61,6 +61,7 @@ pub struct InjectResult {
 pub async fn extract_base_command(
     app: AppHandle,
     n8n_version: String,
+    install_path: String,
 ) -> Result<ExtractResult, String> {
     let image_name = format!("n8nio/n8n:{}", n8n_version);
 
@@ -81,6 +82,11 @@ pub async fn extract_base_command(
 
     let content = String::from_utf8_lossy(&output.stdout).to_string();
 
+    let work_dir = get_docker_compose_dir(&install_path);
+    let file_path = work_dir.join("base-command.js");
+    std::fs::write(&file_path, &content)
+        .map_err(|e| format!("Failed to write base-command.js: {}", e))?;
+
     Ok(ExtractResult {
         success: true,
         content,
@@ -96,8 +102,14 @@ pub fn inject_enterprise(
     let work_dir = get_docker_compose_dir(&install_path);
     let file_path = work_dir.join("base-command.js");
 
-    let file_content = std::fs::read_to_string(&file_path)
-        .map_err(|e| format!("Failed to read base-command.js: {}", e))?;
+    let file_content = if !content.is_empty() {
+        std::fs::write(&file_path, &content)
+            .map_err(|e| format!("Failed to write base-command.js: {}", e))?;
+        content
+    } else {
+        std::fs::read_to_string(&file_path)
+            .map_err(|e| format!("Failed to read base-command.js: {}", e))?
+    };
 
     if file_content.contains("// ENTERPRISE MOCK START") {
         return Ok(InjectResult {

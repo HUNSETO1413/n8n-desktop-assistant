@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { ArrowLeft, ArrowRight, Check, Rocket, Shield, Globe, Lock } from 'lucide-react';
 import type { AppConfig } from '../types';
+import { useLicense } from '../contexts/LicenseContext';
 
 interface WizardProps {
   onComplete: () => void;
@@ -16,6 +17,8 @@ const STEPS = [
 ] as const;
 
 export default function Wizard({ onComplete }: WizardProps) {
+  const { licenseTier } = useLicense();
+  const isEnterprise = licenseTier === 'enterprise';
   const [currentStep, setCurrentStep] = useState(1);
   const [config, setConfig] = useState<AppConfig>({
     schema_version: 1,
@@ -55,17 +58,20 @@ export default function Wizard({ onComplete }: WizardProps) {
 
   const handleInitialize = async () => {
     setInitializing(true);
+    const finalConfig = { ...config, enterprise_enabled: isEnterprise ? config.enterprise_enabled : false };
     try {
-      await invoke('save_config', { config });
-      await invoke('generate_dockerfile', { installPath: config.install_path, n8nVersion: config.n8n_version });
-      await invoke('generate_compose', { installPath: config.install_path, config: JSON.stringify(config) });
-      const extractResult = await invoke('extract_base_command', { n8nVersion: config.n8n_version }) as { content: string };
-      await invoke('inject_enterprise', { installPath: config.install_path, content: extractResult.content });
-      if (config.chinese_ui_enabled) {
-        await invoke('download_i18n', { n8nVersion: config.n8n_version, installPath: config.install_path });
+      await invoke('save_config', { config: finalConfig });
+      await invoke('generate_dockerfile', { installPath: finalConfig.install_path, n8nVersion: finalConfig.n8n_version });
+      await invoke('generate_compose', { installPath: finalConfig.install_path, config: JSON.stringify(finalConfig) });
+      const extractResult = await invoke('extract_base_command', { n8nVersion: finalConfig.n8n_version, installPath: finalConfig.install_path }) as { content: string };
+      if (isEnterprise && finalConfig.enterprise_enabled) {
+        await invoke('inject_enterprise', { installPath: finalConfig.install_path, content: extractResult.content });
       }
-      await invoke('docker_build', { installPath: config.install_path, imageName: config.image_name });
-      await invoke('compose_up', { installPath: config.install_path });
+      if (finalConfig.chinese_ui_enabled) {
+        await invoke('download_i18n', { n8nVersion: finalConfig.n8n_version, installPath: finalConfig.install_path });
+      }
+      await invoke('docker_build', { installPath: finalConfig.install_path, imageName: finalConfig.image_name });
+      await invoke('compose_up', { installPath: finalConfig.install_path });
       setTimeout(() => onComplete(), 1000);
     } catch (err) {
       alert('初始化失败: ' + (err as string));
@@ -223,9 +229,9 @@ export default function Wizard({ onComplete }: WizardProps) {
 
               <div className="space-y-3">
                 {([
-                  { key: 'enterprise_enabled' as const, label: '企业版功能', desc: '自动注入企业版授权', icon: Shield },
-                  { key: 'chinese_ui_enabled' as const, label: '中文界面', desc: '自动下载汉化包', icon: Globe },
-                ]).map(({ key, label, desc, icon: Icon }) => (
+                  { key: 'enterprise_enabled' as const, label: '企业版功能', desc: '自动注入企业版授权', lockedDesc: '需要企业版授权', icon: Shield, locked: !isEnterprise },
+                  { key: 'chinese_ui_enabled' as const, label: '中文界面', desc: '自动下载汉化包', lockedDesc: '', icon: Globe, locked: false },
+                ]).map(({ key, label, desc, lockedDesc, icon: Icon, locked }) => (
                   <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
@@ -233,11 +239,12 @@ export default function Wizard({ onComplete }: WizardProps) {
                       </div>
                       <div>
                         <div className="text-sm font-medium text-slate-700">{label}</div>
-                        <div className="text-xs text-slate-400">{desc}</div>
+                        <div className="text-xs text-slate-400">{locked ? lockedDesc : desc}</div>
                       </div>
                     </div>
                     <label className="toggle">
-                      <input type="checkbox" checked={config[key] as boolean}
+                      <input type="checkbox" checked={locked ? false : config[key] as boolean}
+                        disabled={locked}
                         onChange={(e) => setConfig({ ...config, [key]: e.target.checked })} />
                       <span className="toggle-slider" />
                     </label>
