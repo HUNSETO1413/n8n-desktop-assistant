@@ -1,21 +1,33 @@
 ARG N8N_VERSION=latest
-FROM n8nio/n8n:${N8N_VERSION}-debian
+FROM n8nio/n8n:${N8N_VERSION}
 
 USER root
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    ffmpeg curl python3 python3-pip \
-    chromium libnss3 libglib2.0-0 libfreetype6 libharfbuzz0b \
-    ca-certificates fonts-freefont-ttf udev \
-    fonts-liberation fonts-noto-color-emoji fonts-noto fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/*
+# Re-install apk-tools (removed by n8n base image), auto-detect architecture
+RUN ARCH=$(uname -m) && \
+    busybox wget -O /tmp/apk-tools.apk \
+      "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/${ARCH}/apk-tools-2.14.9-r3.apk" && \
+    cd / && busybox tar xzf /tmp/apk-tools.apk && \
+    rm -f /tmp/apk-tools.apk
+
+# Tencent Cloud mirror
+RUN echo "https://mirrors.tencent.com/alpine/v3.22/main" > /etc/apk/repositories && \
+    echo "https://mirrors.tencent.com/alpine/v3.22/community" >> /etc/apk/repositories
+
+# Install system packages
+RUN apk update && apk upgrade --no-cache && apk add --no-cache \
+    ffmpeg curl python3 py3-pip yt-dlp \
+    chromium nss glib freetype harfbuzz \
+    ca-certificates ttf-freefont udev \
+    ttf-liberation font-noto-emoji font-noto font-noto-cjk && \
+    rm -rf /var/cache/apk/*
 
 RUN pip3 install --break-system-packages yt-dlp 2>/dev/null || true
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
-    PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium
+    PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 RUN fc-cache -f -v
 
