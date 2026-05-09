@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Play, Square, ExternalLink, RefreshCw, RotateCw, FileText, PowerOff, ShieldCheck, Globe, Cpu } from 'lucide-react';
 import { useLicenseGuard } from '../components/LicenseGuard';
+import { prepareBaseCommand } from '../utils/base-command';
 import type { ContainerStatus, DockerPsResult, PageType, LicenseTier } from '../types';
 
 interface AppConfig {
@@ -50,8 +51,15 @@ export default function Dashboard({ licenseValid, licenseTier, onNavigate }: Das
   const installPath = config?.install_path || 'D:\\n8n-compose';
   const n8nUrl = `http://localhost:${config?.port || 5678}`;
 
+  const enterpriseEnabled = licenseTier === 'enterprise' && (config?.enterprise_enabled ?? false);
+
   const handleStartAll = () => guard(async () => {
-    try { await invoke('compose_up', { installPath }); setTimeout(() => loadContainerStatus(), 2000); }
+    try {
+      if (config?.n8n_version) {
+        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled);
+      }
+      await invoke('compose_up', { installPath }); setTimeout(() => loadContainerStatus(), 2000);
+    }
     catch (err) { alert('启动失败: ' + (err as string)); }
   });
   const handleStopAll = () => guard(async () => {

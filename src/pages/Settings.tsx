@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Folder, Shield, Cpu, Save, FolderOpen, Lock, Globe } from 'lucide-react';
 import { useLicenseGuard } from '../components/LicenseGuard';
 import { useLicense } from '../contexts/LicenseContext';
+import { prepareBaseCommand } from '../utils/base-command';
 import type { AppConfig, LicenseValidationResult } from '../types';
 
 type TabId = 'paths' | 'security' | 'features' | 'authorization';
@@ -43,7 +44,15 @@ export default function Settings() {
     try {
       setSaving(true);
       await invoke('save_config', { config });
-      alert('配置已保存');
+      const enterpriseEnabled = licenseTier === 'enterprise' && config.enterprise_enabled;
+      await prepareBaseCommand(config.install_path, config.n8n_version, enterpriseEnabled);
+      try {
+        await invoke('compose_down', { installPath: config.install_path });
+        await invoke('compose_up', { installPath: config.install_path });
+        alert('配置已保存，服务已重启');
+      } catch {
+        alert('配置已保存，但服务重启失败，请手动重启');
+      }
     } catch (err) {
       alert('保存失败: ' + (err as string));
     } finally {

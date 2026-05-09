@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ArrowLeft, ArrowRight, Check, Rocket, Shield, Globe, Lock } from 'lucide-react';
 import type { AppConfig } from '../types';
 import { useLicense } from '../contexts/LicenseContext';
+import { prepareBaseCommand } from '../utils/base-command';
 
 interface WizardProps {
   onComplete: () => void;
@@ -63,10 +64,7 @@ export default function Wizard({ onComplete }: WizardProps) {
       await invoke('save_config', { config: finalConfig });
       await invoke('generate_dockerfile', { installPath: finalConfig.install_path, n8nVersion: finalConfig.n8n_version });
       await invoke('generate_compose', { installPath: finalConfig.install_path, config: JSON.stringify(finalConfig) });
-      const extractResult = await invoke('extract_base_command', { n8nVersion: finalConfig.n8n_version, installPath: finalConfig.install_path }) as { content: string };
-      if (isEnterprise && finalConfig.enterprise_enabled) {
-        await invoke('inject_enterprise', { installPath: finalConfig.install_path, content: extractResult.content });
-      }
+      await prepareBaseCommand(finalConfig.install_path, finalConfig.n8n_version, isEnterprise && finalConfig.enterprise_enabled);
       if (finalConfig.chinese_ui_enabled) {
         await invoke('download_i18n', { n8nVersion: finalConfig.n8n_version, installPath: finalConfig.install_path });
       }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Download, CheckCircle2, RefreshCw, ArrowUpCircle } from 'lucide-react';
 import { useLicenseGuard } from '../components/LicenseGuard';
+import { prepareBaseCommand } from '../utils/base-command';
 import type { VersionCheckResult, PageType, LicenseTier } from '../types';
 
 interface AppConfig {
@@ -95,10 +96,7 @@ export default function VersionManager({ licenseValid, licenseTier, onNavigate }
       setStep(1, 'success');
 
       setStep(2, 'running');
-      const extractResult = await invoke('extract_base_command', { n8nVersion: version, installPath }) as { content: string };
-      if (licenseTier === 'enterprise') {
-        await invoke('inject_enterprise', { installPath, content: extractResult.content });
-      }
+      await prepareBaseCommand(installPath, version, licenseTier === 'enterprise');
       setStep(2, 'success');
 
       setStep(3, 'running');

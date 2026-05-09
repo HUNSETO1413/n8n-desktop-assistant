@@ -2,7 +2,14 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Play, RotateCw, FileText, RefreshCw, Power, Settings2 } from 'lucide-react';
 import { useLicenseGuard } from '../components/LicenseGuard';
+import { prepareBaseCommand } from '../utils/base-command';
 import type { ContainerStatus, ComposePsResult, PageType, LicenseTier } from '../types';
+
+interface AppConfig {
+  install_path: string;
+  n8n_version: string;
+  enterprise_enabled: boolean;
+}
 
 interface ServicesProps {
   licenseValid: boolean;
@@ -17,18 +24,27 @@ export default function Services({ licenseValid, licenseTier, onNavigate }: Serv
   const [logs, setLogs] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const { guard, guardEnterprise, GuardModal } = useLicenseGuard(licenseValid, licenseTier, onNavigate);
 
   useEffect(() => {
+    loadConfig();
     loadServices();
     const interval = setInterval(loadServices, 5000);
     return () => clearInterval(interval);
   }, []);
 
+  const loadConfig = async () => {
+    try { setConfig(await invoke<AppConfig>('load_config')); } catch { /* ignore */ }
+  };
+
+  const installPath = config?.install_path || 'D:\\n8n-compose';
+  const enterpriseEnabled = licenseTier === 'enterprise' && (config?.enterprise_enabled ?? false);
+
   const loadServices = async () => {
     try {
       setError(null);
-      const result: ComposePsResult = await invoke('compose_ps', { installPath: 'D:\\n8n-compose' });
+      const result: ComposePsResult = await invoke('compose_ps', { installPath });
       if (result.success) setServices(result.services);
       else setError(result.error || '未知错误');
       setLoading(false);
@@ -39,24 +55,35 @@ export default function Services({ licenseValid, licenseTier, onNavigate }: Serv
   };
 
   const handleStartAll = () => guard(async () => {
-    try { await invoke('compose_up', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadServices(), 1500); }
+    try {
+      if (config?.n8n_version) {
+        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled);
+      }
+      await invoke('compose_up', { installPath }); setTimeout(() => loadServices(), 1500);
+    }
     catch (err) { alert('启动失败: ' + (err as string)); }
   });
   const handleStopAll = () => guard(async () => {
-    try { await invoke('compose_down', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadServices(), 1500); }
+    try { await invoke('compose_down', { installPath }); setTimeout(() => loadServices(), 1500); }
     catch (err) { alert('停止失败: ' + (err as string)); }
   });
   const handleRestart = (_serviceName: string) => guard(async () => {
-    try { await invoke('compose_down', { installPath: 'D:\\n8n-compose' }); await invoke('compose_up', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadServices(), 1500); }
+    try {
+      await invoke('compose_down', { installPath });
+      if (config?.n8n_version) {
+        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled);
+      }
+      await invoke('compose_up', { installPath }); setTimeout(() => loadServices(), 1500);
+    }
     catch (err) { alert('重启失败: ' + (err as string)); }
   });
   const handleScaleWorkers = () => guard(async () => {
-    try { await invoke('compose_up', { installPath: 'D:\\n8n-compose' }); setTimeout(() => loadServices(), 2000); }
+    try { await invoke('compose_up', { installPath }); setTimeout(() => loadServices(), 2000); }
     catch (err) { alert('Worker 扩缩失败: ' + (err as string)); }
   });
   const handleViewLogs = (serviceName: string) => guard(async () => {
     try {
-      const result = await invoke('compose_logs', { installPath: 'D:\\n8n-compose', service: serviceName, tail: '200' }) as { logs: string };
+      const result = await invoke('compose_logs', { installPath, service: serviceName, tail: '200' }) as { logs: string };
       setSelectedService(serviceName);
       setLogs(result.logs);
     } catch (err) { alert('加载日志失败: ' + (err as string)); }
