@@ -32,6 +32,11 @@ fn check_env() -> Result<env::EnvCheckResult, String> {
     env::check_environment()
 }
 
+#[tauri::command]
+fn force_exit(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -40,6 +45,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_machine_id,
             check_env,
+            force_exit,
+            env::install_dependencies,
             config::load_config,
             config::save_config,
             docker::docker_ps,
@@ -54,6 +61,7 @@ fn main() {
             docker::tag_image,
             docker::push_image,
             docker::docker_login,
+            docker::check_setup_complete,
             version::check_updates,
             enterprise::extract_base_command,
             enterprise::inject_enterprise,
@@ -128,18 +136,25 @@ fn main() {
                             let _ = app.emit("tray://navigate", "beautify");
                         }
                         "quit" => {
-                            app.exit(0);
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                            let _ = app.emit("tray://navigate", "quit");
                         }
                         _ => {}
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
+                    if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
+                        if button == tauri::tray::MouseButton::Left {
+                            let app = tray.app_handle();
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
                         }
                     }
                 })

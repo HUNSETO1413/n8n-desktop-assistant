@@ -9,6 +9,7 @@ interface AppConfig {
   install_path: string;
   n8n_version: string;
   enterprise_enabled: boolean;
+  image_name: string;
 }
 
 interface ServicesProps {
@@ -39,7 +40,7 @@ export default function Services({ licenseValid, licenseTier, onNavigate }: Serv
   };
 
   const installPath = config?.install_path || 'D:\\n8n-compose';
-  const enterpriseEnabled = licenseTier === 'enterprise' && (config?.enterprise_enabled ?? false);
+  const enterpriseEnabled = licenseTier === 'enterprise' && (config?.enterprise_enabled !== false);
 
   const loadServices = async () => {
     try {
@@ -57,7 +58,7 @@ export default function Services({ licenseValid, licenseTier, onNavigate }: Serv
   const handleStartAll = () => guard(async () => {
     try {
       if (config?.n8n_version) {
-        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled);
+        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled, config.image_name);
       }
       await invoke('compose_up', { installPath }); setTimeout(() => loadServices(), 1500);
     }
@@ -71,7 +72,7 @@ export default function Services({ licenseValid, licenseTier, onNavigate }: Serv
     try {
       await invoke('compose_down', { installPath });
       if (config?.n8n_version) {
-        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled);
+        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled, config.image_name);
       }
       await invoke('compose_up', { installPath }); setTimeout(() => loadServices(), 1500);
     }

@@ -48,6 +48,34 @@ export default function Wizard({ onComplete }: WizardProps) {
   const nextStep = () => { if (currentStep < STEPS.length) setCurrentStep(currentStep + 1); };
   const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
 
+  // Generate data sub-paths based on install_path
+  const generateDataPaths = (basePath: string): AppConfig['data_paths'] => {
+    const base = basePath.replace(/[\\\/]$/, '');
+    return {
+      postgresql: `${base}\\postgresql`,
+      n8n_data: `${base}\\n8n-data`,
+      external: `${base}\\external`,
+      ffmpeg: `${base}\\ffmpeg`,
+      images: `${base}\\images`,
+      mcp: `${base}\\mcp`,
+    };
+  };
+
+  const handleInstallPathChange = (newPath: string) => {
+    if (useQuickConfig) {
+      setConfig({ ...config, install_path: newPath, data_paths: generateDataPaths(newPath) });
+    } else {
+      setConfig({ ...config, install_path: newPath });
+    }
+  };
+
+  const handleQuickConfigToggle = (quick: boolean) => {
+    setUseQuickConfig(quick);
+    if (quick) {
+      setConfig({ ...config, data_paths: generateDataPaths(config.install_path) });
+    }
+  };
+
   const generateRandomKey = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
     let key = '';
@@ -144,11 +172,11 @@ export default function Wizard({ onComplete }: WizardProps) {
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setUseQuickConfig(true)}
+                <button onClick={() => handleQuickConfigToggle(true)}
                   className={`btn btn-sm ${useQuickConfig ? 'btn-primary' : 'btn-secondary'}`}>
                   一键配置（推荐）
                 </button>
-                <button onClick={() => setUseQuickConfig(false)}
+                <button onClick={() => handleQuickConfigToggle(false)}
                   className={`btn btn-sm ${!useQuickConfig ? 'btn-primary' : 'btn-secondary'}`}>
                   自定义配置
                 </button>
@@ -157,7 +185,7 @@ export default function Wizard({ onComplete }: WizardProps) {
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">安装路径</label>
                 <input type="text" value={config.install_path}
-                  onChange={(e) => setConfig({ ...config, install_path: e.target.value })}
+                  onChange={(e) => handleInstallPathChange(e.target.value)}
                   className="input w-full" />
                 {useQuickConfig && (
                   <p className="text-xs text-slate-400 mt-1.5">

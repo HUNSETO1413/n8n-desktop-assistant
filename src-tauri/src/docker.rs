@@ -3,6 +3,11 @@ use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 use std::path::PathBuf;
 
+/// Ensure docker is findable via PATH (checks common install locations)
+pub fn ensure_docker() {
+    crate::env::ensure_docker_path();
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContainerStatus {
     #[serde(alias = "ID")]
@@ -74,6 +79,7 @@ pub fn get_docker_compose_dir(install_path: &str) -> PathBuf {
 
 #[tauri::command]
 pub async fn docker_ps(app: AppHandle) -> Result<DockerPsResult, String> {
+    ensure_docker();
     let output = app.shell().command("docker")
         .args(["ps", "-a", "--format", "{{json .}}"])
         .output()
@@ -113,6 +119,7 @@ pub async fn compose_ps(
     app: AppHandle,
     install_path: String,
 ) -> Result<ComposePsResult, String> {
+    ensure_docker();
     let work_dir = get_docker_compose_dir(&install_path);
     let project_name = work_dir.file_name()
         .and_then(|n| n.to_str())
@@ -159,6 +166,7 @@ pub async fn compose_up(
     app: AppHandle,
     install_path: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let compose_file = get_docker_compose_dir(&install_path).join("docker-compose.yml");
     let compose_file_str = compose_file.to_str().ok_or("Invalid path")?.replace('\\', "/");
 
@@ -181,6 +189,7 @@ pub async fn compose_down(
     app: AppHandle,
     install_path: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let compose_file = get_docker_compose_dir(&install_path).join("docker-compose.yml");
     let compose_file_str = compose_file.to_str().ok_or("Invalid path")?.replace('\\', "/");
 
@@ -204,6 +213,7 @@ pub async fn docker_build(
     install_path: String,
     image_name: String,
 ) -> Result<DockerBuildResult, String> {
+    ensure_docker();
     let work_dir = get_docker_compose_dir(&install_path);
     let dockerfile = work_dir.join("Dockerfile");
     let dockerfile_str = dockerfile.to_str().ok_or("Invalid path")?;
@@ -239,6 +249,7 @@ pub async fn docker_pull(
     app: AppHandle,
     image: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let output = app.shell().command("docker")
         .args(["pull", &image])
         .output()
@@ -259,6 +270,7 @@ pub async fn docker_restart(
     app: AppHandle,
     container_name: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let output = app.shell().command("docker")
         .args(["restart", &container_name])
         .output()
@@ -280,6 +292,7 @@ pub async fn compose_logs(
     service: String,
     tail: Option<String>,
 ) -> Result<DockerLogsResult, String> {
+    ensure_docker();
     let compose_file = get_docker_compose_dir(&install_path).join("docker-compose.yml");
     let compose_file_str = compose_file.to_str().ok_or("Invalid path")?.replace('\\', "/");
     let tail_count = tail.unwrap_or_else(|| "200".to_string());
@@ -302,6 +315,7 @@ pub async fn compose_logs(
 
 #[tauri::command]
 pub async fn list_local_images(app: AppHandle) -> Result<ListImagesResult, String> {
+    ensure_docker();
     let output = app.shell().command("docker")
         .args(["images", "--format", "{{json .}}", "--filter", "reference=*n8n*"])
         .output()
@@ -341,6 +355,7 @@ pub async fn tag_image(
     source: String,
     target: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let output = app.shell().command("docker")
         .args(["tag", &source, &target])
         .output()
@@ -358,6 +373,7 @@ pub async fn push_image(
     app: AppHandle,
     image: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let output = app.shell().command("docker")
         .args(["push", &image])
         .output()
@@ -371,12 +387,19 @@ pub async fn push_image(
 }
 
 #[tauri::command]
+pub fn check_setup_complete(install_path: String) -> Result<bool, String> {
+    let compose_path = std::path::Path::new(&install_path).join("docker-compose.yml");
+    Ok(compose_path.exists())
+}
+
+#[tauri::command]
 pub async fn docker_login(
     app: AppHandle,
     registry: String,
     username: String,
     password: String,
 ) -> Result<bool, String> {
+    ensure_docker();
     let mut args = vec!["login".to_string()];
     if !registry.is_empty() {
         args.push(registry);

@@ -8,6 +8,7 @@ import type { VersionCheckResult, PageType, LicenseTier } from '../types';
 interface AppConfig {
   install_path: string;
   n8n_version: string;
+  image_name: string;
 }
 
 interface VersionManagerProps {
@@ -96,7 +97,8 @@ export default function VersionManager({ licenseValid, licenseTier, onNavigate }
       setStep(1, 'success');
 
       setStep(2, 'running');
-      await prepareBaseCommand(installPath, version, licenseTier === 'enterprise');
+      const imgName = config?.image_name || 'n8n-jianying:latest';
+      await prepareBaseCommand(installPath, version, licenseTier === 'enterprise', imgName);
       setStep(2, 'success');
 
       setStep(3, 'running');
@@ -108,6 +110,13 @@ export default function VersionManager({ licenseValid, licenseTier, onNavigate }
       setStep(4, 'success');
 
       setCurrentVersion(version);
+      // Persist the new version to config
+      try {
+        const cfg = await invoke('load_config') as AppConfig;
+        cfg.n8n_version = version;
+        await invoke('save_config', { config: cfg });
+        setConfig(cfg);
+      } catch { /* ignore config save error */ }
       setTimeout(() => { setUpdating(false); }, 800);
     } catch (err) {
       alert('安装失败: ' + (err as string));

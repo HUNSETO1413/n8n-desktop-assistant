@@ -97,8 +97,15 @@ impl Default for AppConfig {
 
 // Platform-specific defaults
 #[cfg(windows)]
+fn windows_base_path() -> String {
+    std::env::var("LOCALAPPDATA")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| "C:\\Users\\Default".to_string())
+}
+
+#[cfg(windows)]
 fn default_install_path() -> String {
-    "D:\\n8n-compose".to_string()
+    format!("{}\\n8n-compose", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]
@@ -109,7 +116,7 @@ fn default_install_path() -> String {
 
 #[cfg(windows)]
 fn default_postgresql() -> String {
-    "D:\\n8n-postgresql".to_string()
+    format!("{}\\n8n-postgresql", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]
@@ -120,7 +127,7 @@ fn default_postgresql() -> String {
 
 #[cfg(windows)]
 fn default_n8n_data() -> String {
-    "D:\\n8n-date".to_string()
+    format!("{}\\n8n-data", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]
@@ -131,7 +138,7 @@ fn default_n8n_data() -> String {
 
 #[cfg(windows)]
 fn default_external() -> String {
-    "D:\\n8n-external".to_string()
+    format!("{}\\n8n-external", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]
@@ -142,7 +149,7 @@ fn default_external() -> String {
 
 #[cfg(windows)]
 fn default_ffmpeg() -> String {
-    "D:\\n8n-ffmpeg".to_string()
+    format!("{}\\n8n-ffmpeg", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]
@@ -153,7 +160,7 @@ fn default_ffmpeg() -> String {
 
 #[cfg(windows)]
 fn default_images() -> String {
-    "D:\\n8n-images".to_string()
+    format!("{}\\n8n-images", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]
@@ -164,7 +171,7 @@ fn default_images() -> String {
 
 #[cfg(windows)]
 fn default_mcp() -> String {
-    "D:\\n8n-mcp".to_string()
+    format!("{}\\n8n-mcp", windows_base_path())
 }
 
 #[cfg(target_os = "macos")]

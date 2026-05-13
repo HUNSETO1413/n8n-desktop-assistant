@@ -4,7 +4,7 @@ import { Folder, Shield, Cpu, Save, FolderOpen, Lock, Globe } from 'lucide-react
 import { useLicenseGuard } from '../components/LicenseGuard';
 import { useLicense } from '../contexts/LicenseContext';
 import { prepareBaseCommand } from '../utils/base-command';
-import type { AppConfig, LicenseValidationResult } from '../types';
+import type { AppConfig, LicenseValidationResult, DockerPsResult } from '../types';
 
 type TabId = 'paths' | 'security' | 'features' | 'authorization';
 
@@ -45,13 +45,34 @@ export default function Settings() {
       setSaving(true);
       await invoke('save_config', { config });
       const enterpriseEnabled = licenseTier === 'enterprise' && config.enterprise_enabled;
-      await prepareBaseCommand(config.install_path, config.n8n_version, enterpriseEnabled);
+      await prepareBaseCommand(config.install_path, config.n8n_version, enterpriseEnabled, config.image_name);
+
+      // Check if there are running containers before deciding whether to restart
+      let hasRunning = false;
       try {
-        await invoke('compose_down', { installPath: config.install_path });
-        await invoke('compose_up', { installPath: config.install_path });
-        alert('配置已保存，服务已重启');
-      } catch {
-        alert('配置已保存，但服务重启失败，请手动重启');
+        const result = await invoke<DockerPsResult>('docker_ps');
+        hasRunning = result.success && result.containers.some(c =>
+          c.status.toLowerCase().includes('up') || c.status.toLowerCase().includes('running')
+        );
+      } catch { /* if we can't check, assume no running containers */ }
+
+      if (hasRunning) {
+        const shouldRestart = confirm(
+          '检测到有运行中的服务。是否立即重启以应用新配置？\n\n点击"确定"保存并重启，点击"取消"仅保存（下次启动时生效）'
+        );
+        if (shouldRestart) {
+          try {
+            await invoke('compose_down', { installPath: config.install_path });
+            await invoke('compose_up', { installPath: config.install_path });
+            alert('配置已保存，服务已重启');
+          } catch {
+            alert('配置已保存，但服务重启失败，请手动重启');
+          }
+        } else {
+          alert('配置已保存，重启后生效');
+        }
+      } else {
+        alert('配置已保存');
       }
     } catch (err) {
       alert('保存失败: ' + (err as string));

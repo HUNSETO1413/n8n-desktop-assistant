@@ -12,6 +12,7 @@ interface AppConfig {
   enterprise_enabled: boolean;
   chinese_ui_enabled: boolean;
   workers: number;
+  image_name: string;
 }
 
 interface DashboardProps {
@@ -51,12 +52,12 @@ export default function Dashboard({ licenseValid, licenseTier, onNavigate }: Das
   const installPath = config?.install_path || 'D:\\n8n-compose';
   const n8nUrl = `http://localhost:${config?.port || 5678}`;
 
-  const enterpriseEnabled = licenseTier === 'enterprise' && (config?.enterprise_enabled ?? false);
+  const enterpriseEnabled = licenseTier === 'enterprise' && (config?.enterprise_enabled !== false);
 
   const handleStartAll = () => guard(async () => {
     try {
       if (config?.n8n_version) {
-        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled);
+        await prepareBaseCommand(installPath, config.n8n_version, enterpriseEnabled, config.image_name);
       }
       await invoke('compose_up', { installPath }); setTimeout(() => loadContainerStatus(), 2000);
     }
@@ -76,12 +77,13 @@ export default function Dashboard({ licenseValid, licenseTier, onNavigate }: Das
   });
 
   const runningCount = containers.filter(c => c.status.toLowerCase().includes('up') || c.status.toLowerCase().includes('running')).length;
+  const hasRunningContainers = runningCount > 0;
 
   const stats = [
-    { icon: Cpu, label: '版本', value: config?.n8n_version ? `v${config.n8n_version}` : '--', color: 'blue' as const },
-    { icon: ShieldCheck, label: '企业版', value: config?.enterprise_enabled ? '已启用' : '未启用', color: 'green' as const },
-    { icon: Globe, label: '中文界面', value: config?.chinese_ui_enabled ? '已启用' : '未启用', color: 'violet' as const },
-    { icon: RefreshCw, label: 'Workers', value: config ? `${config.workers} 个` : '--', color: 'amber' as const },
+    { icon: Cpu, label: '版本', value: hasRunningContainers && config?.n8n_version ? `v${config.n8n_version}` : (config?.n8n_version ? `v${config.n8n_version} (未部署)` : '--'), color: 'blue' as const },
+    { icon: ShieldCheck, label: '企业版', value: hasRunningContainers ? (config?.enterprise_enabled ? '已启用' : '未启用') : (config?.enterprise_enabled ? '已配置' : '未配置'), color: 'green' as const },
+    { icon: Globe, label: '中文界面', value: hasRunningContainers ? (config?.chinese_ui_enabled ? '已启用' : '未启用') : (config?.chinese_ui_enabled ? '已配置' : '未配置'), color: 'violet' as const },
+    { icon: RefreshCw, label: 'Workers', value: hasRunningContainers && config ? `${config.workers} 个` : (config ? `${config.workers} 个 (未部署)` : '--'), color: 'amber' as const },
   ];
 
   return (

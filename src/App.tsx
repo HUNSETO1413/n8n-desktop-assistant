@@ -51,6 +51,7 @@ function App() {
   const [appUpdate, setAppUpdate] = useState<Awaited<ReturnType<typeof check>> | null>(null);
   const [updating, setUpdating] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
+  const [showQuitModal, setShowQuitModal] = useState(false);
   const dismissedNotifIds = useRef(new Set<string>());
 
   useEffect(() => { init(); }, []);
@@ -62,12 +63,14 @@ function App() {
         (async () => {
           try {
             const cfg = await invoke('load_config') as Record<string, unknown>;
-            const port = cfg.n8n_port || 5678;
+            const port = cfg.port || 5678;
             await open(`http://localhost:${port}`);
           } catch { /* ignore */ }
         })();
       } else if (target === 'settings' || target === 'beautify') {
         setPage(target as PageType);
+      } else if (target === 'quit') {
+        setShowQuitModal(true);
       }
     });
     return () => { unlisten.then(fn => fn()); };
@@ -91,7 +94,20 @@ function App() {
       const licenseResult: LicenseValidationResult = await invoke('validate_license', { machineId });
       console.log('[License] validate result:', licenseResult);
       setLicenseValid(licenseResult.valid);
-      setLicenseTier(licenseResult.valid ? parseTier(licenseResult.license_type) : null);
+      const tier = licenseResult.valid ? parseTier(licenseResult.license_type) : null;
+      setLicenseTier(tier);
+
+      // Auto-enable enterprise features when license tier is enterprise
+      if (tier === 'enterprise') {
+        try {
+          const cfg = await invoke<Record<string, unknown>>('load_config');
+          if (!cfg.enterprise_enabled) {
+            cfg.enterprise_enabled = true;
+            await invoke('save_config', { config: cfg });
+          }
+        } catch { /* ignore config update failure */ }
+      }
+
       if (!licenseResult.valid && !loadingRef.current) { setPage('activation'); }
     } catch (err) {
       console.error('[License] validate error:', err);
@@ -231,12 +247,29 @@ function App() {
         try {
           const machineId = await invoke('get_machine_id') as string;
           const result = await invoke('validate_license', { machineId }) as LicenseValidationResult;
-          setPage(result.valid ? 'dashboard' : 'activation');
+          if (result.valid) {
+            // Check if setup wizard has been completed (docker-compose.yml exists)
+            const cfg = await invoke('load_config') as Record<string, unknown>;
+            const hasSetup = await invoke('check_setup_complete', { installPath: cfg.install_path }) as boolean;
+            setPage(hasSetup ? 'dashboard' : 'wizard');
+          } else {
+            setPage('activation');
+          }
         } catch {
           setPage('activation');
         }
       }} />}
-        {page === 'activation' && <Activation onComplete={async () => { await refreshLicense(); setPage('dashboard'); }} />}
+        {page === 'activation' && <Activation onComplete={async () => {
+          await refreshLicense();
+          // Check if setup wizard has been completed (docker-compose.yml exists)
+          try {
+            const cfg = await invoke('load_config') as Record<string, unknown>;
+            const hasSetup = await invoke('check_setup_complete', { installPath: cfg.install_path }) as boolean;
+            setPage(hasSetup ? 'dashboard' : 'wizard');
+          } catch {
+            setPage('wizard');
+          }
+        }} />}
         {page === 'wizard' && <Wizard onComplete={() => setPage('dashboard')} />}
         {page === 'dashboard' && <Dashboard licenseValid={licenseValid} licenseTier={licenseTier} onNavigate={setPage} />}
         {page === 'services' && <Services licenseValid={licenseValid} licenseTier={licenseTier} onNavigate={setPage} />}
@@ -306,6 +339,48 @@ function App() {
               }} />
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>{updateProgress}%</div>
+          </div>
+        </div>
+      )}
+
+      {/* Quit confirmation modal */}
+      {showQuitModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 20, padding: 32, textAlign: 'center',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.2)', maxWidth: 420, width: '90%',
+          }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 8 }}>
+              确认退出
+            </div>
+            <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 24 }}>
+              退出后 Docker 容器将继续在后台运行。是否停止容器？
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button className="btn btn-secondary" onClick={() => setShowQuitModal(false)}>
+                取消
+              </button>
+              <button className="btn btn-secondary" onClick={async () => {
+                setShowQuitModal(false);
+                await invoke('force_exit');
+              }}>
+                直接退出
+              </button>
+              <button className="btn btn-primary" onClick={async () => {
+                setShowQuitModal(false);
+                try {
+                  const cfg = await invoke('load_config') as Record<string, unknown>;
+                  await invoke('compose_down', { installPath: cfg.install_path });
+                } catch { /* ignore */ }
+                await invoke('force_exit');
+              }}>
+                停止并退出
+              </button>
+            </div>
           </div>
         </div>
       )}

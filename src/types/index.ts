@@ -39,11 +39,13 @@ export interface EnvItem {
   status: boolean;
   version?: string;
   required: boolean;
+  winget_id?: string;
 }
 
 export interface EnvCheckResult {
   items: EnvItem[];
   can_proceed: boolean;
+  winget_available: boolean;
 }
 
 export interface LicenseValidationResult {

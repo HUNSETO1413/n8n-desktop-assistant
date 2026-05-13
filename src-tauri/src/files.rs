@@ -83,15 +83,27 @@ pub fn generate_compose(
     let work_dir = get_work_dir(&install_path);
     let compose_path = work_dir.join("docker-compose.yml");
 
-    let data_paths: crate::config::DataPaths = serde_json::from_str(&config)
+    let app_config: crate::config::AppConfig = serde_json::from_str(&config)
         .unwrap_or_default();
 
+    // Extract all config values with defaults
+    let port = app_config.port;
+    let workers = app_config.workers;
+    let db_password = &app_config.db_password;
+    let encryption_key = &app_config.encryption_key;
+    let image_name = &app_config.image_name;
+    let webhook_url = &app_config.webhook_url;
+    let chinese_ui_enabled = app_config.chinese_ui_enabled;
+
+    let data_paths = &app_config.data_paths;
     let pg = &data_paths.postgresql;
     let n8n = &data_paths.n8n_data;
     let ext = &data_paths.external;
     let ff = &data_paths.ffmpeg;
     let img = &data_paths.images;
     let mcp = &data_paths.mcp;
+
+    let locale = if chinese_ui_enabled { "zh-CN" } else { "en" };
 
     let content = format!(r#"version: '3.8'
 
@@ -101,7 +113,7 @@ services:
     restart: always
     environment:
       - POSTGRES_DB=n8n
-      - POSTGRES_PASSWORD=n8n
+      - POSTGRES_PASSWORD={db_password}
       - POSTGRES_USER=n8n
     volumes:
       - {pg}:/var/lib/postgresql/data
@@ -113,7 +125,7 @@ services:
       - n8n-redis-data:/data
 
   n8n-main:
-    image: n8n-jianying:latest
+    image: {image_name}
     restart: always
     depends_on:
       - n8n-db
@@ -121,7 +133,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "5678:5678"
+      - "{port}:{port}"
     volumes:
       - {n8n}:/home/node/.n8n
       - {ext}:/external
@@ -139,29 +151,30 @@ services:
       - DB_POSTGRESDB_HOST=n8n-db
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_USER=n8n
-      - DB_POSTGRESDB_PASSWORD=n8n
+      - DB_POSTGRESDB_PASSWORD={db_password}
       - EXECUTIONS_MODE=queue
       - QUEUE_BULL_REDIS_HOST=n8n-redis
       - QUEUE_BULL_REDIS_PORT=6379
       - N8N_RUNNERS_ENABLED=true
       - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
       - N8N_SECURE_COOKIE=false
-      - N8N_ENCRYPTION_KEY=iX2PxOqkh71A+AStsT8hEic+Co597arX
+      - N8N_ENCRYPTION_KEY={encryption_key}
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
       - EXECUTIONS_DATA_PRUNE_MAX_COUNT=10000
-      - WEBHOOK_URL=http://localhost:5678/
-      - N8N_DEFAULT_LOCALE=zh-CN
+      - WEBHOOK_URL={webhook_url}
+      - N8N_DEFAULT_LOCALE={locale}
       - NODE_FUNCTION_ALLOW_EXTERNAL=*
       - NODE_FUNCTION_ALLOW_BUILTIN=*
       - EXTRA_NODE_MODULES=*
       - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
       - N8N_ALLOW_EMBEDDED_SANDBOX=true
       - NODES_EXCLUDE=[]
+      - N8N_DEPLOYMENT_TYPE=default
 
   n8n-worker:
-    image: n8n-jianying:latest
+    image: {image_name}
     command: worker
     restart: always
     extra_hosts:
@@ -186,20 +199,20 @@ services:
       - DB_POSTGRESDB_HOST=n8n-db
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_USER=n8n
-      - DB_POSTGRESDB_PASSWORD=n8n
+      - DB_POSTGRESDB_PASSWORD={db_password}
       - EXECUTIONS_MODE=queue
       - QUEUE_BULL_REDIS_HOST=n8n-redis
       - QUEUE_BULL_REDIS_PORT=6379
       - N8N_RUNNERS_ENABLED=true
       - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
       - N8N_SECURE_COOKIE=false
-      - N8N_ENCRYPTION_KEY=iX2PxOqkh71A+AStsT8hEic+Co597arX
+      - N8N_ENCRYPTION_KEY={encryption_key}
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
       - EXECUTIONS_DATA_PRUNE_MAX_COUNT=10000
-      - WEBHOOK_URL=http://localhost:5678/
-      - N8N_DEFAULT_LOCALE=zh-CN
+      - WEBHOOK_URL={webhook_url}
+      - N8N_DEFAULT_LOCALE={locale}
       - NODE_FUNCTION_ALLOW_EXTERNAL=*
       - NODE_FUNCTION_ALLOW_BUILTIN=*
       - EXTRA_NODE_MODULES=*
@@ -207,7 +220,7 @@ services:
       - N8N_ALLOW_EMBEDDED_SANDBOX=true
       - NODES_EXCLUDE=[]
     deploy:
-      replicas: 3
+      replicas: {workers}
 
 volumes:
   n8n-redis-data:
